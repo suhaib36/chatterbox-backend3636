@@ -127,20 +127,26 @@ wss.on('connection', (ws) => {
       }
 
       if (data.type === 'join') {
-        const uname = data.username.toLowerCase();
-        const approved = approvedUsers.find(
-          u => u.username.toLowerCase() === uname
-        );
+    const uname = data.username.toLowerCase();
+    const approved = approvedUsers.find(
+      u => u.username.toLowerCase() === uname
+    );
 
-        if (!approved) {
-          ws.send(JSON.stringify({ type: 'error', message: 'Not approved' }));
-          return;
-        }
+    if (!approved) {
+      ws.send(JSON.stringify({ type: 'error', message: 'Not approved' }));
+      return;
+    }
 
-        ws.username = approved.username;
-        onlineUsers[approved.username] = ws;
-        broadcastOnlineUsers();
-      }
+    ws.username = approved.username;
+    onlineUsers[approved.username] = ws;
+
+    // Send the current online users list immediately to this user
+    ws.send(JSON.stringify({ type: 'online-users', users: Object.keys(onlineUsers) }));
+
+    // Then broadcast the updated online list to everyone
+    broadcastOnlineUsers();
+}
+
 
       if (data.type === 'message') {
         const { to, message } = data;
