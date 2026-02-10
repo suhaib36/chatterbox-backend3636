@@ -127,37 +127,45 @@ wss.on('connection', (ws) => {
       }
 
       if (data.type === 'join') {
-    const uname = data.username.toLowerCase();
-    const approved = approvedUsers.find(
-      u => u.username.toLowerCase() === uname
-    );
+  const uname = data.username.trim().toLowerCase();
 
-    if (!approved) {
-      ws.send(JSON.stringify({ type: 'error', message: 'Not approved' }));
-      return;
-    }
+  // Find approved user
+  const approved = approvedUsers.find(u => u.username.toLowerCase() === uname);
+  if (!approved) {
+    ws.send(JSON.stringify({ type: 'error', message: 'Not approved' }));
+    return;
+  }
 
-    ws.username = approved.username;
-    onlineUsers[approved.username] = ws;
+  // Store original display name in ws
+  ws.username = approved.username;
 
-    // Send the current online users list immediately to this user
-    ws.send(JSON.stringify({ type: 'online-users', users: Object.keys(onlineUsers) }));
+  // Use lowercase username as key in onlineUsers
+  onlineUsers[uname] = ws;
 
-    // Then broadcast the updated online list to everyone
-    broadcastOnlineUsers();
+  // Send current online users to this user
+  ws.send(JSON.stringify({
+    type: 'online-users',
+    users: Object.values(onlineUsers).map(ws => ws.username)
+  }));
+
+  // Broadcast updated online list to everyone
+  broadcastOnlineUsers();
 }
 
+// ------------------ Message handling ------------------
+if (data.type === 'message') {
+  const to = data.to.trim().toLowerCase(); // normalize recipient
+  const message = data.message;
 
-      if (data.type === 'message') {
-        const { to, message } = data;
-        if (onlineUsers[to]) {
-          onlineUsers[to].send(JSON.stringify({
-            type: 'message',
-            from: ws.username,
-            message
-          }));
-        }
-      }
+  if (onlineUsers[to]) {
+    onlineUsers[to].send(JSON.stringify({
+      type: 'message',
+      from: ws.username, // original display name
+      message
+    }));
+  }
+}
+
 
     } catch (e) {
       console.log("WS error:", e.message);
